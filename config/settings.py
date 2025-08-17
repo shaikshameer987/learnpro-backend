@@ -12,11 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import environ
+from datetime import timedelta
 
 env = environ.Env()
 environ.Env.read_env()
-
-print(env("AA"))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,19 +32,25 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# add this to mention the default auth user model should use our custom user model
+AUTH_USER_MODEL = 'users.User'
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders', # add this to bypass cors
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "apps.users",
+    "apps.courses"
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', # add cors headers middlewares to handle CORS errors
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -54,6 +59,15 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Allow requests from frontend (running on localhost:3000) to access this backend
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+# Permit cookies / authentication headers (like JWT / session IDs) to be included in cross-origin requests
+CORS_ALLOW_CREDENTIALS = True
+
 
 ROOT_URLCONF = 'config.urls'
 
@@ -79,10 +93,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+   'default': {
+       'ENGINE': 'django.db.backends.postgresql_psycopg2',
+       'NAME': 'learnpro',
+       'USER': 'postgres',
+       'PASSWORD': 'Password987@',
+       'HOST': '127.0.0.1',
+       'PORT': '5432',
+   }
 }
 
 
@@ -126,3 +144,21 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# To remove adding trailing slashes at the end of api.
+APPEND_SLASH = False
+
+# To change default authentication using jwt tokens
+# And we dont need to add manual auhentication for each api.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    )
+}
+
+# JWT settings for token expirations
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),  # Access token expires in 7 days
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
