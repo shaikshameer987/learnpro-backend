@@ -1,6 +1,7 @@
 import re
 from rest_framework import serializers
 from apps.users.models import User
+from django.contrib.auth import authenticate
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -30,3 +31,25 @@ class RegisterUserSerializer(serializers.ModelSerializer):
             is_staff=validated_data.get('is_staff', False),
             is_superuser=validated_data.get('is_superuser', False),
         )
+
+class LoginUserSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        email    = attrs.get("email")
+        password = attrs.get("password")
+
+        if not email or not password:
+            raise serializers.ValidationError({"email" : "Email and Password are required"})
+
+        user = authenticate(username=email, password=password)
+        if not user:
+            raise serializers.ValidationError({"email" : "User does not exist with this email and password"})
+
+        attrs["user"] = user
+        return attrs
+
+    def to_representation(self, instance):
+        user = instance.get("user")
+        return RegisterUserSerializer(user).data
