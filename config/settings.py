@@ -63,6 +63,7 @@ MIDDLEWARE = [
 # Allow requests from frontend (running on localhost:3000) to access this backend
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 # Permit cookies / authentication headers (like JWT / session IDs) to be included in cross-origin requests
@@ -151,9 +152,10 @@ APPEND_SLASH = False
 # To change default authentication using jwt tokens
 # And we dont need to add manual auhentication for each api.
 REST_FRAMEWORK = {
+    # we are using our custom jwt cookie authentication as django framework jwt autentication checks for token in header but as we are using cookie here we need to have our own custom cookie authentication setup
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    )
+        "utils.helpers.CookieJWTAuthentication",
+    ),
 }
 
 # JWT settings for token expirations
@@ -161,4 +163,5 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=7),  # Access token expires in 7 days
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
+    'SIGNING_KEY': env('JWT_SECRET_KEY')
 }
