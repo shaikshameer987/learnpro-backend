@@ -45,7 +45,12 @@ class LoginView(CustomApiView):
     def post(self, request):
         serializer = LoginUserSerializer(data=request.data)
         if serializer.is_valid():
-            return success_response(serializer.data, status.HTTP_200_OK)
+            response = success_response(serializer.data, status.HTTP_200_OK)
+            user = User.objects.get(pk=serializer.data['id'])
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            response = set_cookie(response=response, token=access_token)
+            return response
 
         errors = serializer.errors
         first_error = get_strutured_error(errors=errors, request_data=request.data)
