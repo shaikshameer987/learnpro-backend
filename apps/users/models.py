@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from common.constants import (PROVIDER_CHOICES, CREDENTIALS)
+from common.constants import (PROVIDER_CHOICES)
 
 
 # Create your models here.
@@ -16,7 +16,11 @@ class UserManager(BaseUserManager):
             raise ValueError("Email, Name are mandatory")
         # to remove trailing whitespaces and covert to lowercase we use normalize_email function.
         email = self.normalize_email(email)
-        user = self.model(email=email, name=name, **extra_fields)
+
+        valid_fields = {f.name for f in self.model._meta.get_fields()}
+        filtered_fields = {k: v for k, v in extra_fields.items() if k in valid_fields}
+
+        user = self.model(email=email, name=name, **filtered_fields)
 
         if(password):
             user.set_password(password)
@@ -47,9 +51,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 class UserSocialProfile(models.Model):
     user = models.ForeignKey("User", on_delete=models.CASCADE, related_name="social_profiles")
     provider_id = models.IntegerField(blank=False, null=False)
-    provider = models.CharField(choices=PROVIDER_CHOICES, blank=False)
+    provider = models.CharField(choices=PROVIDER_CHOICES, blank=False, max_length=50)
+
     class Meta:
-        unique_together = ('provider', 'provider_id') # Ensure no duplicates
+        constraints = [
+            models.UniqueConstraint(fields=['provider', 'provider_id'], name='unique_provider_profile')
+        ]
 
     def __str__(self):
-        return f"{self.user.email} - {self.provider_name}"
+        return f"{self.user.email} - {self.provider}"

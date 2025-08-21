@@ -1,69 +1,50 @@
-import re
 from rest_framework import serializers
-from apps.users.models import User
+from apps.users.models import (User, UserSocialProfile)
 from django.contrib.auth import authenticate
 from common.constants import (PROVIDER_CHOICES, CREDENTIALS)
 
-
-class RegisterUserSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(required=True, max_length=50)
-    email = serializers.EmailField(required=True)
-    password = serializers.CharField(write_only=True, required=True, min_length=10)
-    provider = serializers.ChoiceField(choices=PROVIDER_CHOICES)
-    is_staff = serializers.BooleanField(default=False)
-    is_superuser = serializers.BooleanField(default=False)
-
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
+        exclude = ["password", "last_login"]
+
+class RegisterSerializer(serializers.Serializer):
+    name = serializers.CharField(required=True, max_length=100)
+    email = serializers.EmailField(required=True)
+    provider = serializers.CharField(required=True, write_only=True)
+    password = serializers.CharField(required=False, write_only=True, min_length=10)
+    providerId = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate(self, data):
-        email = data.get('email')
+        provider = data.get("provider")
+        password = data.get("password")
+        provider_id = data.get("providerId")
 
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError({"email": "User already exists with this email."})
+        if provider == CREDENTIALS:
+            if not password:
+                raise serializers.ValidationError({"password": "Password is required for credentials signup."})
+
+        else:
+            if not provider_id:
+                raise serializers.ValidationError({"provider": "Provider Id required for social signup"})
 
         return data
 
     def create(self, validated_data):
-        return User.objects.create_user(
-            name=validated_data.get('name'),
-            email=validated_data.get('email'),
-            password=validated_data.get('password'),
-            provider=validated_data.get('provider'),
-            is_staff=validated_data.get('is_staff', False),
-            is_superuser=validated_data.get('is_superuser', False),
-        )
+        email = validated_data.get("email")
+        provider = validated_data.get("provider")
+        provider_id = validated_data.get("providerId")
+        is_staff = validated_data.get("isStaff", False)
+        is_superuser = validated_data.get("isSuperuser", False)
 
-class LoginUserSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-    password = serializers.CharField(write_only=True, required=True)
-    provider = serializers.ChoiceField(choices=PROVIDER_CHOICES)
+        user = User.objects.filter(email=email).first()
 
-    def validate(self, attrs):
-        email    = attrs.get("email")
-        password = attrs.get("password")
-        provider = attrs.get("provider")
+        if not user:
+            user = User.objects.create_user(is_staff=is_staff, is_superuser=is_superuser, **validated_data)
 
-        if not email or not provider:
-            raise serializers.ValidationError({"email" : "Email and Provider are required"})
+        profile_exists = UserSocialProfile.objects.filter(user=user,provider=provider,provider_id=provider_id).exists()
 
-        if provider == CREDENTIALS:
-            if not password:
-                raise serializers.ValidationError({"password": "Password is required"})
+        if provider != CREDENTIALS and not profile_exists:
+            UserSocialProfile.objects.create(provider=provider, user=user, provider_id=provider_id)
 
-            user = authenticate(username=email, password=password)
-            if not user:
-                raise serializers.ValidationError({"email": "User does not exist with this email or password"})
-
-        else:
-            user = User.objects.filter(email=email, provider=provider).first()
-            if not user:
-                raise serializers.ValidationError({"email": "User does not exist with this email or password"})
-
-        attrs["user"] = user
-        return attrs
-
-    def to_representation(self, instance):
-        user = instance.get("user")
-        return RegisterUserSerializer(user).data
+        return user
