@@ -50,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class UserSocialProfile(models.Model):
     user = models.ForeignKey("User", on_delete=models.CASCADE, related_name="social_profiles")
-    provider_id = models.IntegerField(blank=False, null=False)
+    provider_id = models.CharField(blank=False, null=False)
     provider = models.CharField(choices=PROVIDER_CHOICES, blank=False, max_length=50)
 
     class Meta:
